@@ -1,0 +1,262 @@
+#include <windows.h>
+#include <stdio.h>
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, 
+			WPARAM wParam, LPARAM lParam);
+
+
+LPCTSTR lpszClass = TEXT("Menu");
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, 
+		   LPSTR lpszCmdLine, int nCmdShow)
+{
+	HWND	hwnd;
+	MSG		msg;
+	WNDCLASS WndClass;   
+	WndClass.style			= CS_HREDRAW | CS_VREDRAW;
+	WndClass.lpfnWndProc	= WndProc;      
+	WndClass.cbClsExtra		= 0;      
+	WndClass.cbWndExtra		= 0;      
+	WndClass.hInstance		= hInstance;      
+	WndClass.hIcon			= LoadIcon(NULL, IDI_APPLICATION);
+	WndClass.hCursor		= LoadCursor(NULL, IDC_ARROW);   
+	WndClass.hbrBackground	= (HBRUSH)GetStockObject(WHITE_BRUSH);   
+	WndClass.lpszMenuName	= NULL;      
+	WndClass.lpszClassName	= lpszClass;   
+	RegisterClass(&WndClass);   
+
+	hwnd = CreateWindow(lpszClass,
+		lpszClass,
+		WS_OVERLAPPEDWINDOW,
+		60,   
+		80,   
+		600,   
+		600,   
+		NULL,   
+		NULL,   
+		hInstance,   
+		NULL    
+	);
+	ShowWindow(hwnd, nCmdShow);
+	UpdateWindow(hwnd);
+
+	while(GetMessage(&msg, NULL, 0, 0))
+	{
+		TranslateMessage(&msg);   
+		DispatchMessage(&msg);   
+	}   
+	return (int)msg.wParam;
+}
+
+HDC hdc;
+int food_x[10]={};
+int food_y[10]={};
+
+void snake(HDC hdc, int *x, int *y, int length){
+	for (int i=0; i<10;i++){
+		if(i==0){
+			SelectObject(hdc,CreateSolidBrush(RGB(0,255,255)));
+		}
+		else{
+			SelectObject(hdc,CreateSolidBrush(RGB(255,0,255)));
+		}
+		Rectangle(hdc, x[i] - 10, y[i] - 10, x[i] + 10, y[i] + 10);
+	}
+}
+
+void Food_make(HDC hdc, int *food_x, int *food_y){
+   for(int i=0;i<10;i++){
+      SelectObject(hdc, CreateSolidBrush(RGB(255, 255, 255)));
+      TextOut(hdc, food_x[i]-4, food_y[i]-8, "T", 1);
+   }
+}
+
+void Food_place(HWND hwnd, int *x, int *y) {
+	int temp;
+	for(int i=0; i<10; i++){
+		do {
+			*x = (rand() % 580);
+			temp = *x % 10;
+			*x -= temp;
+		} while (*x % 20 != 10);
+		//먹이의 x좌표
+
+		do {
+			*y = (rand() % 580);
+			temp = *y % 10;
+			*y -= temp;
+		} while (*y % 20 != 10);
+		//먹이의 y좌표
+		//영역 내 먹이를 표시해야 한다. 뱀의 좌표와 일치하기 위해서는 항상 20의 간격을 유지해야 한다.
+		food_x[i] = *x;
+		food_y[i] = *y;
+	}
+	InvalidateRgn(hwnd, NULL, TRUE);
+}
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, 
+			 WPARAM wParam, LPARAM lParam)     
+{
+	PAINTSTRUCT ps;
+
+	HBRUSH MyColor; //색깔 채우기
+	static int fx,fy; //먹이 좌표
+	static int width[100] = {90}; //뱀 시작 x좌표
+	static int height[100] = {90}; //뱀 시작 y좌표
+	static int length = 1; //뱀 시작 개수
+	static bool flag[5]; //1~4 인덱스로 방향키 저장
+	static int count;
+	static bool food_flag;
+
+	switch (iMsg) 
+	{
+	case WM_CREATE:
+		Food_place(hwnd,&fx,&fy);
+		SetTimer(hwnd, 5, 10000, NULL); //꼬리 늘어나는 타이머
+		SetTimer(hwnd ,6 ,500 ,NULL); //먹었나 안먹었나 검사
+		for(int i=0;i<sizeof(flag);i++) flag[i]=FALSE;
+		fx=fy=0;
+		count=0;
+		food_flag=FALSE;
+		break;
+
+	case WM_TIMER:
+		switch(wParam){
+		case 1: //위
+			for (int i = 0; i < length; i++) {
+				width[length - i] = width[length - i - 1];
+				height[length - i] = height[length - i - 1];
+			}
+			height[0] -= 20;
+			//뱀의 머리는 위로 한 칸 이동, 몸은 한 칸씩 땡기기
+			break;
+
+		case 2: //아래
+			for (int i = 0; i < length; i++) {
+				width[length - i] = width[length - i - 1];
+				height[length - i] = height[length - i - 1];
+			}
+			height[0] += 20;
+			//뱀의 머리는 아래로 한 칸 이동, 몸은 한 칸씩 땡기기
+			break;
+
+		case 3: //왼쪽
+			for (int i = 0; i < length; i++) {
+				width[length - i] = width[length - i - 1];
+				height[length - i] = height[length - i - 1];
+			}
+			width[0] -= 20;
+			//뱀의 머리는 왼쪽으로 한 칸 이동, 몸은 한 칸씩 땡기기
+			break;
+
+		case 4: //오른쪽
+			for (int i = 0; i < length; i++) {
+				width[length - i] = width[length - i - 1];
+				height[length - i] = height[length - i - 1];
+			}
+			width[0] += 20;
+			//뱀의 머리는 오른쪽으로 한 칸 이동, 몸은 한 칸씩 땡기기
+			break;
+
+		case 5: //3초마다 꼬리 늘어나기
+			width[length+1] = width[length];
+			height[length+1] = height[length];
+			length++;
+			break;
+
+		case 6://먹었나 안먹었나 검사
+			for(int i=0;i<10;i++){
+				if (width[0] == food_x[i] && height[0]==food_y[i]) {
+					food_x[i]=NULL;
+					food_y[i]=NULL;
+					count++;
+					food_flag=TRUE;
+					if(food_flag){
+						width[length+1] = width[length];
+						height[length+1] = height[length];
+						length++;
+					}
+					if(count==10){
+						int iResult = MessageBox(hwnd,"VICTORY","게임 종료",MB_OK);
+                        if(iResult==IDOK){
+                           SendMessage(hwnd,WM_CLOSE,NULL,NULL);
+						}
+						break;
+					}
+				}
+				food_flag=FALSE;
+			}
+			InvalidateRect(hwnd, NULL, FALSE);
+
+			break;
+
+		}
+	case WM_KEYDOWN:
+		if (wParam == VK_UP) {
+			if (!flag[1]) {
+				SetTimer(hwnd, 1,500, NULL);
+				flag[1] = TRUE;
+			}
+			else {
+				KillTimer(hwnd, 1);
+				flag[1] = FALSE;
+			}
+			
+		}
+		else if (wParam == VK_DOWN) {
+			if (!flag[2]) {
+				SetTimer(hwnd, 2, 500, NULL);
+				flag[2] = TRUE;
+			}
+			else {
+				KillTimer(hwnd, 2);
+				flag[2] = FALSE;
+			}
+		}
+		else if (wParam == VK_LEFT) {
+			if (!flag[3]) {
+				SetTimer(hwnd, 3, 500, NULL);
+				flag[3] = TRUE;
+			}
+			else {
+				KillTimer(hwnd, 3);
+				flag[3] = FALSE;
+			}
+		}
+		else if (wParam == VK_RIGHT) {
+			if (!flag[4]) {
+				SetTimer(hwnd, 4, 500, NULL);
+				flag[4] = TRUE;
+			}
+			else {
+				KillTimer(hwnd, 4);
+				flag[4] = FALSE;
+			}
+		}
+		InvalidateRect(hwnd, NULL,TRUE);
+		break;
+
+	case WM_PAINT:
+		hdc = BeginPaint(hwnd, &ps);
+		WCHAR str[10];
+
+		snake(hdc,width,height,length); //뱀 그리기
+		Food_make(hdc,food_x,food_y); //먹이 그리기
+
+
+		wsprintfW(str, L"점수 %d", count);
+		TextOutW(hdc, 10, 10, str, 4);
+
+		wsprintfW(str, L"꼬리 %d ", length+1);
+		TextOutW(hdc, 10, 30, str, 5);
+
+		EndPaint(hwnd, &ps);
+		break;
+
+
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	} 
+	return DefWindowProc(hwnd, iMsg, wParam, lParam); 
+}
